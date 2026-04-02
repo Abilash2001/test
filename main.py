@@ -1,19 +1,19 @@
 import sys
-from datetime import datetime
-from typing import List,Optional,Literal,Tuple
+from typing import List,Tuple
 import os
 import gc
+
 # 3rdPartyLib
 from dotenv import load_dotenv,find_dotenv
-import boto3
 
 # User Defined
 import tokens
-import sqs_logger
+import logging_consumer as log
+import publisher as pub
 
 
 
-def consume_message(main_logger: sqs_logger.loggy.logging.Logger,session,kind: str):
+def consume_message(main_logger: log.loggy.logging.Logger,session,kind: str,rabbit_conn: pub.RqPublisher):
     sqs_client = session.client("sqs")
     queue_name = os.environ.get(f"{kind}_SQS_QUEUE_URL")
     print("\n"*3)
@@ -55,6 +55,7 @@ def parse_argument() -> Tuple[str|None,str|None]:
     else:
         return (env_result,queue_type)
 
+
 def load_current_env(get_env: str) -> None:
     path: str = f"./config/.env.{get_env}"
     if not load_dotenv(find_dotenv(path),override=True):
@@ -62,12 +63,16 @@ def load_current_env(get_env: str) -> None:
 
 if __name__ == "__main__":
     get_env,get_kind = parse_argument()
-    main_logger = sqs_logger.get_logger(__file__)
+    main_logger = log.get_logger(__file__)
     main_logger.info(f"Got env: {get_env}")
 
     if get_env is not None and get_kind is not None:
         load_current_env(get_env)
-        session = tokens.get_aws_session()
-        consume_message(main_logger,session,get_kind)
+        session = tokens.get_aws_session()        
+        sqs_pub_obj = pub.SqsPublisher(main_logger=main_logger,kind=get_kind)        
+        rabbit_pub_obj = pub.RqPublisher(main_logger=main_logger,sqs_pub=sqs_pub_obj,kind=get_kind)
+        consume_message(main_logger,session,get_kind,rabbit_pub_obj)
+    else:
+        main_logger.error("Input variable are not passed")
     
     
