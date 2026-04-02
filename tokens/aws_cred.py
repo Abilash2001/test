@@ -4,6 +4,7 @@ from botocore.session import get_session
 from botocore.credentials import RefreshableCredentials
 import logging 
 import sys
+from datetime import timedelta,timezone
 
 from typing import Dict
 
@@ -29,7 +30,7 @@ logger.setLevel(logging.INFO)
 
 
 # worker iam role has to be passed for sts assume
-AWS_ROLE_ARN = "arn:aws:iam::713881786078:role/didaw-tsel-migration-lambda-role"
+AWS_ROLE_ARN = "arn:aws:iam::385980464129:role/COMCAST-Execution-Role"
 MAX_RETRY=3
 
 def refresh_tokens() -> Dict[str,str] | None:
@@ -48,13 +49,15 @@ def refresh_tokens() -> Dict[str,str] | None:
             RoleSessionName = 'sqs-worker-auto-refresh',
             DurationSeconds =900
         )
-
-        creds = resp["Credentitals"]
+        print(resp["Credentials"])
+        creds = resp["Credentials"]
+        expiry = creds["Expiration"].astimezone(timezone.utc) - timedelta(seconds=100)
+        expiry_str = expiry.strftime("%Y-%m-%dT%H:%M:%SZ")
         return {
             "access_key": creds["AccessKeyId"],
             "secret_key": creds["SecretAccessKey"],
             "token": creds["SessionToken"],
-            "expiry_time": creds["Expiration"].isoformat()
+            "expiry_time": expiry_str
         }
     except Exception as e:
         global MAX_RETRY
@@ -64,7 +67,6 @@ def refresh_tokens() -> Dict[str,str] | None:
             MAX_RETRY = MAX_RETRY-1
             logger.info("Failed to refresh (reason) => %s\n",e)
             logger.info(" %s Retrying %s", "*"*5,"*"*5)
-            logger.info("\n%s","*"*10)
             return refresh_tokens()
 
 
@@ -76,6 +78,10 @@ def get_aws_session() -> Session:
 
         NOTE: Aws sesssion are not process safe so we should use one session per worker
     """
+
+
+    RefreshableCredentials._advisory_refresh_timeout = 10*60
+    # RefreshableCredentials._mandatory_refresh_timeout = 10*60
     refreshable_creds = RefreshableCredentials.create_from_metadata(
                                     metadata=refresh_tokens(),
                                     refresh_using=refresh_tokens,

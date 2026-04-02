@@ -1,0 +1,17 @@
+[Unit]
+Description=Node sqss message consumer and publish to rabbitmq
+After=network.target
+
+[Service]
+#ExecStart=/Data/Scheduler_Program/venv/bin/python /Data/Scheduler_Program/NODE_Segment_SQSRawMessageIngestAndPublish.py
+Environment=PATH=/Data/Scheduler_Program/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/bin/bash -c "/Data/Scheduler_Program/venv/bin/python /Data/Scheduler_Program/NODE_Segment_SQSRawMessageIngestAndPublish.py"
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/Data/Scheduler_Program/
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
