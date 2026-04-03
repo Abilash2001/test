@@ -14,7 +14,7 @@ class RqPublisher:
          "host": os.environ.get("RABBIT_HOST") or "localhost",
          "port": os.environ.get("RABBIT_PORT") or "5672",
          "username": os.environ.get("RABBIT_USER") or "",
-         "password": os.environ.get("RABBIT_PASS") or "",
+         "password": os.environ.get("RABBIT_PASSWORD") or "",
          "vhost": os.environ.get("RABBIT_VHOST") or "/",
          "exchange": os.environ.get(f"{kind}_EXCHANGE_NAME") or "",
          "exchange_type": os.environ.get(f"{kind}_EXCHANGE_TYPE") or "direct",
