@@ -27,6 +27,17 @@ def consume_message(main_logger: log.loggy.logging.Logger,session,kind: str,rabb
             )
             result= response.get("Messages",[])
             main_logger.info(f"GOT: {len(result)} messages\r")
+            if len(result)!=0:
+                success_ids = rabbit_conn.publish_message(result)
+                rabbit_conn.publish_returned_messaged_to_sqs_dlq()                
+                if len(success_ids)!=0:
+                    for id in success_ids:
+                        receipt_id = result[id]["ReceiptHandle"]
+                        sqs_client.delete_message(
+                            QueueUrl = queue_name,
+                            ReceiptHandle = receipt_id
+                        )
+            break
         except Exception as e:
             gc.collect()
             main_logger.exception(f"Failed to poll the {kind} SQS, (reason) =>{str(e)}\n",exc_info=True)

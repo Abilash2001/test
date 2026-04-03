@@ -1,6 +1,6 @@
-import tokens
 import os
-import boto3
+
+import tokens
 
 class SqsPublisher:
     def __init__(self,main_logger,kind) -> None:
@@ -11,8 +11,17 @@ class SqsPublisher:
         self.conn = self.session.client("sqs")        
     
 
-    def publish_message(self,message):
+    def publish_message(self,messages):
         self.main_logger.info(f"Sending DLQ message for {self.kind}")
-        resp = self.conn.send_message(MessageBody=message)
-        self.main_logger.info(resp["MessageId"])
+        failed_messsages= []
+        if len(messages)==0:
+            self.main_logger.info("Nothing to send DLQ")
+        for message in messages:
+            try:
+                resp = self.conn.send_message(MessageBody=message.decode("utf-8"))
+                self.main_logger.info(f"Sent successfully {resp["MessageId"]}")
+            except Exception as e:
+                failed_messsages.append(message)
+                self.main_logger.exception(f"Failed to send DLQ {e}",exc_info=True)
+        return failed_messsages
     

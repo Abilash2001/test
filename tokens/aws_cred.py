@@ -18,7 +18,7 @@ console_handler.setFormatter(formatter)
 console_error_handler.setFormatter(formatter)
 
 console_handler.setLevel(logging.INFO)
-console_error_handler.setLevel(logging.INFO)
+console_error_handler.setLevel(logging.ERROR)
 
 if not logger.handlers:
     logger.addHandler(console_handler)

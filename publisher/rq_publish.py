@@ -1,6 +1,11 @@
+import os 
+import json
+from typing import List
+import gc
 
 import pika
-import os 
+from pika.exceptions import UnroutableError
+
 
 class RqPublisher:
    def __init__(self,main_logger,sqs_pub,kind) -> None:
@@ -32,10 +37,11 @@ class RqPublisher:
       self.main_logger = main_logger
       self.returned_messages = []
       self.dlq_sqs = sqs_pub
+      self.get_connection()
 
-   def publish_message_to_dlq_sqs(self,channel,method,property,body):
+   def return_callback_message(self,channel,method,property,body):
       try:
-         self.dlq_sqs.publish_message(body.decode("utf-8"))
+         self.returned_messages.append(body)
       except Exception:
          self.main_logger.exception(f"Failed to send message for {body.decode('utf-8')}\n",exc_info=True)
 
@@ -50,7 +56,7 @@ class RqPublisher:
       self.channel.confirm_delivery()
 
       self.main_logger.info("Adding return callback")
-      self.channel.add_on_return_callback(self.publish_message_to_dlq_sqs)
+      self.channel.add_on_return_callback(self.return_callback_message)
 
       self.channel.exchange_declare(
          exchange=self.connection_parameter["exchange"],
@@ -69,8 +75,37 @@ class RqPublisher:
          routing_key=self.connection_parameter["routing_key"]
       )
 
-   def publish_message(self):
-      pass
+   def publish_returned_messaged_to_sqs_dlq(self):
+      result  = self.dlq_sqs.publish_message(self.returned_messages)
+      self.returned_messages  =list(filter(lambda x: x in result,self.returned_messages))
+      gc.collect()
+
+   def publish_message(self,messages) -> List[int]:
+      success_ids =[]
+      for idx,message in enumerate(messages):
+         try:
+            message_encode = json.dumps(message).encode("utf-8")
+            self.main_logger.info(f"Publishing message id {idx}")
+            if self.channel is None:
+               raise ValueError("channel is None ")
+            self.channel.basic_publish(
+               exchange=self.connection_parameter["exchange"],
+               routing_key=self.connection_parameter["routing_key"],
+               body=message_encode,
+               properties=pika.BasicProperties(delivery_mode=2),
+               mandatory=True
+            )
+            success_ids.append(idx)
+            self.main_logger(f"message published successfully formessage id {idx}")         
+
+         except UnroutableError:
+            self.main_logger.info(f"Cant able to route message to the queue for messageId: {idx}")
+            self.returned_messages.append(message)            
+         except Exception as e:
+            self.main_logger.exception(f"Failed to send message {e}\n",exc_info=True)
+      return success_ids
+
+
 
 
 
