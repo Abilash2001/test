@@ -41,6 +41,7 @@ class RqPublisher:
 
    def return_callback_message(self,channel,method,property,body):
       try:
+         self.main_logger.error("Cant able to route message..")
          self.returned_messages.append(body)
       except Exception:
          self.main_logger.exception(f"Failed to send message for {body.decode('utf-8')}\n",exc_info=True)
@@ -84,7 +85,7 @@ class RqPublisher:
       success_ids =[]
       for idx,message in enumerate(messages):
          try:
-            message_encode = json.dumps(message).encode("utf-8")
+            message_encode = json.dumps(message["Body"]).encode("utf-8")
             self.main_logger.info(f"Publishing message id {idx}")
             if self.channel is None:
                raise ValueError("channel is None ")
@@ -96,7 +97,7 @@ class RqPublisher:
                mandatory=True
             )
             success_ids.append(idx)
-            self.main_logger(f"message published successfully formessage id {idx}")         
+            self.main_logger.info(f"message published successfully formessage id {idx}")         
 
          except UnroutableError:
             self.main_logger.info(f"Cant able to route message to the queue for messageId: {idx}")
